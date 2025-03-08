@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Coins, Gift, Truck } from "lucide-react";
@@ -25,26 +25,67 @@ interface LoyaltyStatusCardProps {
 }
 
 const LoyaltyStatusCard = ({
-  userName = "محمد أحمد",
-  coinsBalance = 750,
-  loyaltyTier = { name: "ذهبي", color: "bg-yellow-500" },
-  activeStampCards = [
-    {
-      id: "1",
-      name: "عشاق القهوة",
-      totalStamps: 8,
-      collectedStamps: 5,
-      expiryDate: "2023-12-31",
-    },
-    {
-      id: "2",
-      name: "نادي السندويشات",
-      totalStamps: 6,
-      collectedStamps: 2,
-      expiryDate: "2023-11-30",
-    },
-  ],
+  userName = "",
+  coinsBalance = 0,
+  loyaltyTier = { name: "عادي", color: "bg-blue-500" },
+  activeStampCards = [],
 }: LoyaltyStatusCardProps) => {
+  const [userData, setUserData] = useState({
+    name: userName,
+    coins: coinsBalance,
+    tier: loyaltyTier,
+    cards: activeStampCards
+  });
+  
+  // جلب بيانات المستخدم من قاعدة البيانات
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const userId = localStorage.getItem('userId');
+        if (!userId) return;
+        
+        // استدعاء خدمة الحصول على بيانات المستخدم
+        const { getUserById } = await import('@/services/mysql/user.service');
+        const { getStampCards } = await import('@/services/mysql/loyalty.service');
+        
+        const user = await getUserById(parseInt(userId));
+        if (user) {
+          // تحديد مستوى الولاء بناءً على عدد العملات
+          let tier = { name: "عادي", color: "bg-blue-500" };
+          if (user.coins >= 1000) {
+            tier = { name: "ذهبي", color: "bg-yellow-500" };
+          } else if (user.coins >= 500) {
+            tier = { name: "فضي", color: "bg-gray-400" };
+          } else if (user.coins >= 200) {
+            tier = { name: "برونزي", color: "bg-amber-600" };
+          }
+          
+          // جلب بطاقات الطوابع النشطة
+          const stampCards = await getStampCards(user.id);
+          const activeCards = stampCards
+            .filter(card => card.active)
+            .map(card => ({
+              id: card.id.toString(),
+              name: card.name,
+              totalStamps: card.total_stamps,
+              collectedStamps: card.collected_stamps,
+              expiryDate: card.expiry_date
+            }));
+          
+          setUserData({
+            name: user.name,
+            coins: user.coins,
+            tier,
+            cards: activeCards
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    };
+    
+    fetchUserData();
+  }, []);
   return (
     <Card className="w-full bg-white shadow-md">
       <CardHeader className="pb-2">
@@ -52,8 +93,8 @@ const LoyaltyStatusCard = ({
           <CardTitle className="text-2xl font-bold">
             حالة الولاء الخاصة بك
           </CardTitle>
-          <Badge className={`${loyaltyTier.color} text-white px-3 py-1`}>
-            عضو {loyaltyTier.name}
+          <Badge className={`${userData.tier.color} text-white px-3 py-1`}>
+            عضو {userData.tier.name}
           </Badge>
         </div>
       </CardHeader>
@@ -66,7 +107,7 @@ const LoyaltyStatusCard = ({
             </div>
             <div>
               <p className="text-sm text-slate-500">العملات المتاحة</p>
-              <p className="text-2xl font-bold">{coinsBalance}</p>
+              <p className="text-2xl font-bold">{userData.coins}</p>
               <p className="text-xs text-slate-400">
                 استخدمها للحصول على خصومات على الطلبات
               </p>
@@ -80,17 +121,7 @@ const LoyaltyStatusCard = ({
             </div>
             <div>
               <p className="text-sm text-slate-500">بطاقات الطوابع النشطة</p>
-              <p className="text-2xl font-bold">{activeStampCards.length}</p>
-              <div className="flex space-x-reverse space-x-1 mt-1">
-                {activeStampCards.map((card) => (
-                  <div
-                    key={card.id}
-                    className="text-xs bg-white px-2 py-1 rounded border"
-                  >
-                    {card.collectedStamps}/{card.totalStamps} {card.name}
-                  </div>
-                ))}
-              </div>
+              <p className="text-2xl font-
             </div>
           </div>
 

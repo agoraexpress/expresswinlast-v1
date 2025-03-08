@@ -119,6 +119,27 @@ export const getStampCards = async (userId: string): Promise<StampCard[]> => {
     const cardsCollection = collection(db, "stampCards");
     const q = query(cardsCollection, where("userId", "==", userId));
     const cardsSnapshot = await getDocs(q);
+
+    // If no data exists in Firestore, initialize with mock data
+    if (cardsSnapshot.empty) {
+      console.log("Initializing stamp cards in Firestore");
+      for (const card of mockStampCards) {
+        const { id, ...cardData } = card;
+        // Set the correct userId for the current user
+        await addDoc(collection(db, "stampCards"), {
+          ...cardData,
+          userId: userId,
+        });
+      }
+
+      // Fetch again after initialization
+      const newSnapshot = await getDocs(q);
+      return newSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as StampCard[];
+    }
+
     return cardsSnapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),

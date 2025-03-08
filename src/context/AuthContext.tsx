@@ -43,15 +43,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
         if (user) {
           try {
+            // Set localStorage for compatibility with existing code
+            localStorage.setItem("isLoggedIn", "true");
+
+            // Check if user is admin
             const userDoc = await getDoc(doc(db, "users", user.uid));
             if (userDoc.exists()) {
-              setUserData(userDoc.data() as UserData);
+              const userData = userDoc.data() as UserData;
+              setUserData(userData);
+
+              // Set admin status in localStorage
+              if (userData.role === "admin") {
+                localStorage.setItem("isAdmin", "true");
+              } else {
+                localStorage.setItem("isAdmin", "false");
+              }
+            } else {
+              // Create new user document if it doesn't exist
+              const newUserData: UserData = {
+                uid: user.uid,
+                email: user.email || "",
+                displayName: user.displayName || "",
+                phoneNumber: user.phoneNumber || "",
+                role: "user",
+                coins: 0,
+                createdAt: new Date(),
+              };
+
+              await setDoc(doc(db, "users", user.uid), newUserData);
+              setUserData(newUserData);
+              localStorage.setItem("isAdmin", "false");
             }
           } catch (error) {
             console.error("Error fetching user data:", error);
           }
         } else {
           setUserData(null);
+          localStorage.removeItem("isLoggedIn");
+          localStorage.removeItem("isAdmin");
         }
 
         setLoading(false);

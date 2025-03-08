@@ -110,6 +110,23 @@ export const getMenuItems = async (): Promise<MenuItem[]> => {
   try {
     const menuCollection = collection(db, "menuItems");
     const menuSnapshot = await getDocs(menuCollection);
+
+    // If no data exists in Firestore, initialize with mock data
+    if (menuSnapshot.empty) {
+      console.log("Initializing menu items in Firestore");
+      for (const item of mockMenuItems) {
+        const { id, ...itemData } = item;
+        await addDoc(collection(db, "menuItems"), itemData);
+      }
+
+      // Fetch again after initialization
+      const newSnapshot = await getDocs(menuCollection);
+      return newSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as MenuItem[];
+    }
+
     return menuSnapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),

@@ -19,20 +19,30 @@ const UserLogin: React.FC = () => {
     setError("");
 
     try {
-      // For development - use localStorage authentication
-      if (userPin === "1234") {
+      // استدعاء خدمة تسجيل الدخول من MySQL
+      const { loginUser } = await import("@/services/mysql/auth.service");
+      const user = await loginUser(userPhone, userPin);
+
+      if (user) {
         localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("isAdmin", "false");
-        navigate("/home");
+        localStorage.setItem("userId", user.id.toString());
+
+        if (user.role === "admin") {
+          localStorage.setItem("isAdmin", "true");
+          navigate("/admin");
+        } else {
+          localStorage.setItem("isAdmin", "false");
+          navigate("/home");
+        }
         return;
       }
 
-      // In production, this would use Firebase authentication
+      // إذا لم يتم العثور على المستخدم
       setError("رقم الهاتف أو رمز PIN غير صحيح");
       setIsLoading(false);
     } catch (error) {
       console.error("Login error:", error);
-      setError("رقم الهاتف أو رمز PIN غير صحيح");
+      setError("حدث خطأ أثناء تسجيل الدخول");
       setIsLoading(false);
     }
   };

@@ -66,7 +66,18 @@ export const loginUser = async (
     if (userDoc.exists()) {
       return userDoc.data() as UserData;
     } else {
-      throw new Error("User data not found");
+      // Create user document if it doesn't exist
+      const userData: UserData = {
+        uid: user.uid,
+        email: user.email || email,
+        displayName: user.displayName || email.split("@")[0],
+        phoneNumber: user.phoneNumber || "",
+        role: "user",
+        coins: 0,
+        createdAt: new Date(),
+      };
+      await setDoc(doc(db, "users", user.uid), userData);
+      return userData;
     }
   } catch (error) {
     console.error("Error logging in:", error);

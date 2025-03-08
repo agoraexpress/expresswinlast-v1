@@ -109,11 +109,37 @@ export const createOrder = async (order: Order): Promise<string> => {
 
   // Real implementation for production mode
   try {
+    // Add order to Firestore
     const docRef = await addDoc(collection(db, "orders"), {
       ...order,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+
+    // Update user's coins if applicable
+    if (order.earnedCoins > 0 || order.usedCoins > 0) {
+      const userRef = doc(db, "users", order.userId);
+      const userDoc = await getDoc(userRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const currentCoins = userData.coins || 0;
+        const newCoins = currentCoins + order.earnedCoins - order.usedCoins;
+
+        await updateDoc(userRef, { coins: newCoins });
+
+        // Record coin transaction
+        await addDoc(collection(db, "coinTransactions"), {
+          userId: order.userId,
+          orderId: docRef.id,
+          earnedCoins: order.earnedCoins,
+          usedCoins: order.usedCoins,
+          balance: newCoins,
+          createdAt: new Date(),
+        });
+      }
+    }
+
     return docRef.id;
   } catch (error) {
     console.error("Error creating order:", error);

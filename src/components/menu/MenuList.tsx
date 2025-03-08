@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import MenuItem, { MenuItemType } from "./MenuItem";
 import MenuCategories from "./MenuCategories";
 import { t } from "@/i18n";
+import { getMenuItems, getCategories } from "@/services/mysql/menu.service";
 
 interface MenuListProps {
   items?: MenuItemType[];
@@ -15,10 +16,32 @@ const MenuList = ({
   const [activeCategory, setActiveCategory] = useState("1");
   const [menuItems, setMenuItems] = useState<MenuItemType[]>(items);
 
-  // Sync items prop with state
+  // جلب العناصر من قاعدة البيانات
   useEffect(() => {
-    setMenuItems(items);
-  }, [items]);
+    const fetchMenuItems = async () => {
+      try {
+        const data = await getMenuItems();
+        // تحويل البيانات إلى الشكل المطلوب
+        const formattedItems = data.map((item) => ({
+          id: item.id.toString(),
+          name: item.name,
+          description: item.description,
+          price: item.price,
+          coinValue: item.coin_value,
+          imageUrl: item.image_url,
+          ingredients: item.ingredients,
+          category: item.category_id.toString(),
+        }));
+        setMenuItems(formattedItems);
+      } catch (error) {
+        console.error("Error fetching menu items:", error);
+        // استخدام البيانات الافتراضية في حالة الخطأ
+        setMenuItems(items);
+      }
+    };
+
+    fetchMenuItems();
+  }, []);
 
   const filteredItems = menuItems.filter(
     (item) => item.category === activeCategory,
@@ -48,7 +71,8 @@ const MenuList = ({
   );
 };
 
-const categories = [
+// جلب التصنيفات من قاعدة البيانات
+const [categories, setCategories] = useState([
   {
     id: "1",
     name: t("burgers"),
@@ -79,7 +103,58 @@ const categories = [
     imageUrl:
       "https://images.unsplash.com/photo-1544145945-f90425340c7e?w=300&q=80",
   },
-];
+]);
+
+// جلب التصنيفات من قاعدة البيانات
+useEffect(() => {
+  const fetchCategories = async () => {
+    try {
+      const data = await getCategories();
+      // تحويل البيانات إلى الشكل المطلوب
+      const formattedCategories = data.map((category) => {
+        // تحديد الصورة بناءً على نوع التصنيف
+        let imageUrl = "";
+        switch (category.icon) {
+          case "burger":
+            imageUrl =
+              "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=300&q=80";
+            break;
+          case "pizza":
+            imageUrl =
+              "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=300&q=80";
+            break;
+          case "salad":
+            imageUrl =
+              "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=300&q=80";
+            break;
+          case "dessert":
+            imageUrl =
+              "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=300&q=80";
+            break;
+          case "drink":
+            imageUrl =
+              "https://images.unsplash.com/photo-1544145945-f90425340c7e?w=300&q=80";
+            break;
+          default:
+            imageUrl =
+              "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=300&q=80";
+        }
+
+        return {
+          id: category.id.toString(),
+          name: category.name,
+          imageUrl,
+        };
+      });
+      setCategories(formattedCategories);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      // الاحتفاظ بالتصنيفات الافتراضية في حالة الخطأ
+    }
+  };
+
+  fetchCategories();
+}, []);
 
 const defaultItems: MenuItemType[] = [
   {

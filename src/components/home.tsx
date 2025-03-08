@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import DemoModeBanner from "@/components/common/DemoModeBanner";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/layout/Navbar";
@@ -11,83 +11,105 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Clock, ArrowRight, ShoppingBag, Flame } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { MenuItemType } from "@/components/menu/MenuItem";
+import { getFlashSaleItems } from "@/services/mysql/menu.service";
+import { getUserById } from "@/services/mysql/user.service";
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
   const { addToCart } = useCart();
 
-  // Flash sale products
-  const flashSaleProducts: MenuItemType[] = [
-    {
-      id: "flash1",
-      name: "برجر دبل تشيز",
-      description: "برجر لحم مزدوج مع طبقتين من الجبن الذائب والصلصة الخاصة",
-      price: 59.99,
-      coinValue: 60,
-      imageUrl:
-        "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&q=80",
-      ingredients: ["لحم بقري", "جبن شيدر", "خس", "طماطم", "بصل", "صلصة خاصة"],
-      category: "1",
-    },
-    {
-      id: "flash2",
-      name: "بيتزا سوبريم",
-      description: "بيتزا محملة بالخضروات الطازجة واللحوم المشكلة والجبن",
-      price: 89.99,
-      coinValue: 90,
-      imageUrl:
-        "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&q=80",
-      ingredients: [
-        "عجينة",
-        "صلصة طماطم",
-        "جبن موزاريلا",
-        "فلفل",
-        "زيتون",
-        "لحم مفروم",
-        "فطر",
-      ],
-      category: "2",
-    },
-    {
-      id: "flash3",
-      name: "سلطة سيزر دجاج",
-      description: "سلطة خس رومين مع قطع دجاج مشوية وصلصة سيزر وخبز محمص",
-      price: 49.99,
-      coinValue: 50,
-      imageUrl:
-        "https://images.unsplash.com/photo-1550304943-4f24f54ddde9?w=500&q=80",
-      ingredients: [
-        "خس روماني",
-        "دجاج مشوي",
-        "صلصة سيزر",
-        "خبز محمص",
-        "جبن بارميزان",
-      ],
-      category: "3",
-    },
-    {
-      id: "flash4",
-      name: "ميلك شيك شوكولاتة",
-      description: "ميلك شيك كريمي بالشوكولاتة مع كريمة مخفوقة",
-      price: 29.99,
-      coinValue: 30,
-      imageUrl:
-        "https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=500&q=80",
-      ingredients: ["حليب", "آيس كريم", "شوكولاتة", "كريمة مخفوقة"],
-      category: "5",
-    },
-    {
-      id: "flash5",
-      name: "أجنحة دجاج حارة",
-      description: "أجنحة دجاج مقرمشة ومتبلة بصلصة حارة",
-      price: 39.99,
-      coinValue: 40,
-      imageUrl:
-        "https://images.unsplash.com/photo-1608039755401-742074f0548d?w=500&q=80",
-      ingredients: ["أجنحة دجاج", "توابل", "صلصة حارة"],
-      category: "6",
-    },
-  ];
+  // منتجات العروض الخاصة
+  const [flashSaleProducts, setFlashSaleProducts] = useState<MenuItemType[]>(
+    [],
+  );
+  const [userCoins, setUserCoins] = useState(0);
+
+  // جلب منتجات العروض الخاصة من قاعدة البيانات
+  useEffect(() => {
+    const fetchFlashSaleItems = async () => {
+      try {
+        const data = await getFlashSaleItems();
+        // تحويل البيانات إلى الشكل المطلوب
+        const formattedItems = data.map((item) => ({
+          id: item.id.toString(),
+          name: item.name,
+          description: item.description,
+          price: item.price,
+          coinValue: item.coin_value,
+          imageUrl: item.image_url,
+          ingredients: item.ingredients,
+          category: item.category_id.toString(),
+          isFlashSale: true,
+          discountPercentage: item.discount_percentage,
+        }));
+        setFlashSaleProducts(formattedItems);
+      } catch (error) {
+        console.error("Error fetching flash sale items:", error);
+        // استخدام البيانات الافتراضية في حالة الخطأ
+        setFlashSaleProducts([
+          {
+            id: "flash1",
+            name: "برجر دبل تشيز",
+            description:
+              "برجر لحم مزدوج مع طبقتين من الجبن الذائب والصلصة الخاصة",
+            price: 59.99,
+            coinValue: 60,
+            imageUrl:
+              "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&q=80",
+            ingredients: [
+              "لحم بقري",
+              "جبن شيدر",
+              "خس",
+              "طماطم",
+              "بصل",
+              "صلصة خاصة",
+            ],
+            category: "1",
+          },
+          {
+            id: "flash2",
+            name: "بيتزا سوبريم",
+            description: "بيتزا محملة بالخضروات الطازجة واللحوم المشكلة والجبن",
+            price: 89.99,
+            coinValue: 90,
+            imageUrl:
+              "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&q=80",
+            ingredients: [
+              "عجينة",
+              "صلصة طماطم",
+              "جبن موزاريلا",
+              "فلفل",
+              "زيتون",
+              "لحم مفروم",
+              "فطر",
+            ],
+            category: "2",
+          },
+        ]);
+      }
+    };
+
+    fetchFlashSaleItems();
+  }, []);
+
+  // جلب بيانات المستخدم
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const userId = localStorage.getItem("userId");
+        if (!userId) return;
+
+        const user = await getUserById(parseInt(userId));
+        if (user) {
+          setUserCoins(user.coins);
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    };
+
+    fetchUserData();
+  }, []);
 
   // Products of the day
   const productsOfDay: MenuItemType[] = [
