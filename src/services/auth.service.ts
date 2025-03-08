@@ -1,108 +1,101 @@
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  sendPasswordResetEmail,
-  updateProfile,
-  User,
-} from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { doc, setDoc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { UserData } from "@/context/AuthContext";
+import pool from "@/lib/mysql";
 
-export const registerUser = async (
-  email: string,
-  password: string,
-  displayName: string,
-  phoneNumber: string,
-): Promise<UserData> => {
-  try {
-    // Create user in Firebase Auth
-    const userCredential = await createUserWithEmailAndPassword(
-      auth,
-      email,
-      password,
-    );
-    const user = userCredential.user;
-
-    // Update profile with display name
-    await updateProfile(user, { displayName });
-
-    // Create user document in Firestore
-    const userData: UserData = {
-      uid: user.uid,
-      email: email,
-      displayName: displayName,
-      phoneNumber: phoneNumber,
-      role: "user",
-      coins: 0,
-      createdAt: new Date(),
-    };
-
-    await setDoc(doc(db, "users", user.uid), userData);
-
-    return userData;
-  } catch (error) {
-    console.error("Error registering user:", error);
-    throw error;
-  }
-};
+export interface UserData {
+  id: number;
+  name: string;
+  phone: string;
+  email: string | null;
+  role: "user" | "admin";
+  coins: number;
+  created_at: Date;
+}
 
 export const loginUser = async (
-  email: string,
-  password: string,
-): Promise<UserData> => {
+  phone: string,
+  pin: string,
+): Promise<UserData | null> => {
   try {
-    const userCredential = await signInWithEmailAndPassword(
-      auth,
-      email,
-      password,
+    const [rows] = await pool.query(
+      "SELECT * FROM users WHERE phone = ? AND pin = ?",
+      [phone, pin],
     );
-    const user = userCredential.user;
 
-    // Get user data from Firestore
-    const userDoc = await getDoc(doc(db, "users", user.uid));
-    if (userDoc.exists()) {
-      return userDoc.data() as UserData;
-    } else {
-      // Create user document if it doesn't exist
-      const userData: UserData = {
-        uid: user.uid,
-        email: user.email || email,
-        displayName: user.displayName || email.split("@")[0],
-        phoneNumber: user.phoneNumber || "",
-        role: "user",
-        coins: 0,
-        createdAt: new Date(),
-      };
-      await setDoc(doc(db, "users", user.uid), userData);
-      return userData;
+    const users = rows as UserData[];
+    if (users.length === 0) {
+      return null;
     }
+
+    return users[0];
   } catch (error) {
     console.error("Error logging in:", error);
     throw error;
   }
 };
 
-export const logoutUser = async (): Promise<void> => {
+export const registerUser = async (
+  name: string,
+  phone: string,
+  pin: string,
+  email?: string,
+): Promise<UserData> => {
   try {
-    await signOut(auth);
+    // التحقق من عدم وجود مستخدم بنفس رقم الهاتف
+    const [existingUsers] = await pool.query(
+      "SELECT * FROM users WHERE phone = ?",
+      [phone],
+    );
+
+    if ((existingUsers as any[]).length > 0) {
+      throw new Error("رقم الهاتف مستخدم بالفعل");
+    }
+
+    // إنشاء مستخدم جديد
+    const [result] = await pool.query(
+      "INSERT INTO users (name, phone, pin, email, role, coins) VALUES (?, ?, ?, ?, ?, ?)",
+      [name, phone, pin, email || null, "user", 0],
+    );
+
+    const userId = (result as any).insertId;
+
+    // استرجاع بيانات المستخدم الجديد
+    const [userRows] = await pool.query("SELECT * FROM users WHERE id = ?", [
+      userId,
+    ]);
+
+    return (userRows as UserData[])[0];
   } catch (error) {
-    console.error("Error logging out:", error);
+    console.error("Error registering user:", error);
     throw error;
   }
 };
 
-export const resetPassword = async (email: string): Promise<void> => {
+export const getUserById = async (id: number): Promise<UserData | null> => {
   try {
-    await sendPasswordResetEmail(auth, email);
+    const [rows] = await pool.query("SELECT * FROM users WHERE id = ?", [id]);
+
+    const users = rows as UserData[];
+    if (users.length === 0) {
+      return null;
+    }
+
+    return users[0];
   } catch (error) {
-    console.error("Error resetting password:", error);
+    console.error("Error getting user:", error);
     throw error;
   }
 };
 
-export const getCurrentUser = (): User | null => {
-  return auth.currentUser;
+export const updateUserCoins = async (
+  userId: number,
+  coins: number,
+): Promise<void> => {
+  try {
+    await pool.query("UPDATE users SET coins = ? WHERE id = ?", [
+      coins,
+      userId,
+    ]);
+  } catch (error) {
+    console.error("Error updating user coins:", error);
+    throw error;
+  }
 };
